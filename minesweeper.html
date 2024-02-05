@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>just minesweeper</title>
+		<link rel="stylesheet" type="text/css" href="https://snowbound.xyz/index.css" />
+	</head>
+	
+	<body>
+		<h1>just minesweeper</h1>
+		<canvas id="c" width="300" height="420">
+			You must enable Javascript to play this game.
+		</canvas>
+		<br>
+		<button onclick="window.location.reload()">Reset Game</button>
+		<br><br>
+		copyright (c) 2024 johnny stene. mit license.
+		
+		<script>
+			var squares = Array(21).fill().map(() => Array(15).fill(0));
+			var allowGame = true;
+
+			function getSquareX(event) {
+				return Math.floor((event.x - event.target.offsetLeft) / 20);
+			}
+			
+			function getSquareY(event) {
+				return Math.floor((event.y - event.target.offsetTop) / 20);
+			}
+			
+			function hasBomb(x, y) {
+				if(squares[y][x] == 2) return true;
+				if(squares[y][x] == 4) return true;
+				if(squares[y][x] == 5) return true;
+				return false;
+			}
+			
+			function getNeighbourCount(x, y) {
+				var neighbours = 0;
+				
+				if(y != 0) {
+					if(x != 0 && hasBomb(x - 1, y - 1)) neighbours ++;
+					if(hasBomb(x, y - 1)) neighbours ++;
+					if(x != 14 && hasBomb(x + 1, y - 1)) neighbours ++;
+				}
+				
+				if(x != 0 && hasBomb(x - 1, y)) neighbours ++;
+				if(x != 14 && hasBomb(x + 1, y)) neighbours ++;
+				
+				if(y != 20) {
+					if(x != 0 && hasBomb(x - 1, y + 1)) neighbours ++;
+					if(hasBomb(x, y + 1)) neighbours ++;
+					if(x != 14 && hasBomb(x + 1, y + 1)) neighbours ++;
+				}
+				
+				return neighbours;
+			}
+			
+			// Recursive function to unravel whole board
+			function unravel(x, y) {
+				// If this isn't an empty square, we shouldn't unravel further
+				var neighborCount = getNeighbourCount(x, y);
+				if(neighborCount  == 0) {
+					squares[y][x] = 1;
+				} else {
+					squares[y][x] = 5 + neighborCount;
+					return;
+				}
+				
+				if(y != 0) {
+					if(x != 0 && squares[y - 1][x - 1] == 0) unravel(x - 1, y - 1);
+					if(squares[y - 1][x] == 0) unravel(x, y - 1);
+					if(x != 14 && squares[y - 1][x + 1] == 0) unravel(x + 1, y - 1);
+				}
+				
+				if(x != 0 && squares[y][x - 1] == 0) unravel(x - 1, y);
+				if(x != 14 && squares[y][x + 1] == 0) unravel(x + 1, y);
+				
+				if(y != 20) {
+					if(x != 0 && squares[y + 1][x - 1] == 0) unravel(x - 1, y + 1);
+					if(squares[y + 1][x] == 0) unravel(x, y + 1);
+					if(x != 14 && squares[y + 1][x + 1] == 0) unravel(x + 1, y + 1);
+				}
+			}
+			
+			function render(context) {
+				for(var y = 0; y < 21; y++) {
+					for(var x = 0; x < 15; x++) {
+						if(squares[y][x] == 0 || squares[y][x] == 4) { // Unclicked, or unclicked bomb
+							context.fillStyle = "blue";
+							context.fillRect(x * 20, y * 20, 20, 20);
+							
+							context.fillStyle = "darkblue";
+							context.beginPath();
+							context.rect(x * 20, y * 20, 20, 20);
+							context.stroke();
+						} else if(squares[y][x] == 1) { // Clicked, empty 
+							context.fillStyle = "darkblue";
+							context.fillRect(x * 20, y * 20, 20, 20);
+						} else if(squares[y][x] == 2) { // Clicked, bomb
+							context.fillStyle = "red";
+							context.fillRect(x * 20, y * 20, 20, 20);
+							
+							context.fillStyle = "darkred";
+							context.beginPath();
+							context.rect(x * 20, y * 20, 20, 20);
+							context.stroke();
+						} else if(squares[y][x] == 3 || squares[y][x] == 5) { // Flagged
+							context.fillStyle = "yellow";
+							context.fillRect(x * 20, y * 20, 20, 20);
+							
+							context.fillStyle = "gold";
+							context.beginPath();
+							context.rect(x * 20, y * 20, 20, 20);
+							context.stroke();
+						} else { // Clicked, numbered
+							context.fillStyle = "darkblue";
+							context.fillRect(x * 20, y * 20, 20, 20);
+							
+							context.fillStyle = "white";
+							context.font = "15px Monospace";
+							context.fillText(squares[y][x] - 5, 5 + (x * 20), (y * 20) + 15);
+						}
+					}
+				}
+			}
+			
+			window.onload = function() {
+				let canvas = document.getElementById("c");
+				let context = canvas.getContext("2d");
+				
+				canvas.addEventListener("contextmenu", function(event) {
+					if(!allowGame) return;
+					event.preventDefault(); // Stops context menu from showing up
+					
+					var x = getSquareX(event);
+					var y = getSquareY(event);
+					
+					if(squares[y][x] == 0) squares[getSquareY(event)][getSquareX(event)] = 3;
+					else if(squares[y][x] == 3) squares[getSquareY(event)][getSquareX(event)] = 0;
+					else if(squares[y][x] == 4) squares[getSquareY(event)][getSquareX(event)] = 5;
+					else if(squares[y][x] == 5) squares[getSquareY(event)][getSquareX(event)] = 4;
+					else return;
+					render(context);
+				});
+				
+				canvas.addEventListener("click", function(event) {
+					if(!allowGame) return;
+					var x = getSquareX(event);
+					var y = getSquareY(event);
+					
+					if(squares[y][x] == 3 || squares[y][x] == 5) return; // do not click flagged square
+					else if(squares[y][x] == 4) {
+						squares[y][x] = 2;
+						allowGame = false;
+						render(context);
+						context.fillStyle = "red";
+						context.font = "30px Monospace";
+						context.fillText("You lose!", 20, 50);
+						return;
+					} else { unravel(x, y); }
+					
+					render(context);
+					
+					// Check for win condition
+					for(var y = 0; y < 21; y++) {
+						for(var x = 0; x < 15; x++) {
+							if(squares[y][x] == 0 || squares[y][x] == 3) return;
+						}
+					}
+					
+					// No free squares unclicked or false flagged, must've won!
+					allowGame = false;
+					context.fillStyle = "green";
+					context.font = "30px Monospace";
+					context.fillText("You win!", 20, 50);
+				});	
+				
+				// populate bombs
+				for(var i = 0; i < 25; i++) {
+					squares[Math.floor(Math.random() * 21)][Math.floor(Math.random() * 15)] = 4;
+				}
+				
+				context.fillRect(0, 0, 300, 420);
+				render(context);
+			}
+		</script>
+	</body>
+</html>
